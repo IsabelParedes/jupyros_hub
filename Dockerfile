@@ -1,5 +1,7 @@
-ARG BASE_CONTAINER=jupyter/minimal-notebook:latest
-FROM $BASE_CONTAINER
+# Specify parent image. Please select a fixed tag here.
+# ARG BASE_IMAGE=registry.git.rwth-aachen.de/jupyter/profiles/rwth-courses:latest
+ARG BASE_IMAGE=jupyter/minimal-notebook
+FROM $BASE_IMAGE
 
 # Fix: https://github.com/hadolint/hadolint/wiki/DL4006
 # Fix: https://github.com/koalaman/shellcheck/wiki/SC3014
@@ -7,13 +9,14 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 USER root
 
-RUN apt-get install --yes --no-install-recommends apt-utils 
-
 RUN apt-get update --yes && \
     apt-get install --yes --no-install-recommends \
-    wget \
+    firefox \
     build-essential && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
+
+COPY start.sh start-notebook.sh start-singleuser.sh /usr/local/bin/
+RUN chmod 777 /usr/local/bin/start*
 
 USER ${NB_UID}
 
@@ -26,9 +29,10 @@ RUN arch=$(uname -m) && \
     fi && \
     # To remove the pinned python 3.10
     rm /opt/conda/conda-meta/pinned && \ 
-    source activate base 
+    source activate base
 RUN mamba install --yes -c robostack -c conda-forge \
     'python=3.9' \
+    'mamba_gator' \
     'catkin_tools' \
     'pkg-config' \ 
     'make' \
@@ -49,6 +53,7 @@ RUN mamba install --yes -c robostack -c conda-forge \
 
 ENV ROS_IP=127.0.0.1
 
-USER ${NB_UID}
-
 WORKDIR "${HOME}"
+
+ENTRYPOINT [ "tini", "-g", "--" ]
+CMD [ "/usr/local/bin/start-notebook.sh" ]
